@@ -24,7 +24,6 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Sacoli API Endpoint သို့ Request ပို့ခြင်း
         const response = await fetch("https://sacoliofficial.com/api/api/games/mobile-legends", {
             method: "POST",
             headers: {
@@ -39,17 +38,22 @@ export default async function handler(req, res) {
 
         const data = await response.json();
 
-        if (data && (data.username || data.data?.username || data.nickname)) {
+        // Sacoli ဘက်က ပြန်ပို့ပေးတဲ့ Response အပြည့်အစုံကို စစ်ဆေးခြင်း
+        const foundName = data?.username || data?.data?.username || data?.name || data?.data?.name || data?.nickname || data?.data?.nickname;
+
+        if (foundName) {
             return res.status(200).json({
                 status: true,
-                username: data.username || data.data?.username || data.nickname,
+                username: foundName,
                 user_id: userId,
                 zone_id: zoneId
             });
         } else {
+            // Sacoli ရဲ့ raw response ပါ ထည့်ပြပေးထားပါသည်
             return res.status(400).json({
                 status: false,
-                message: data?.message || "အကောင့် ရှာမတွေ့ပါ။ ID/Zone ပြန်စစ်ပါ။"
+                message: data?.message || "အကောင့် ရှာမတွေ့ပါ။ ID/Zone ပြန်စစ်ပါ။",
+                raw_debug: data
             });
         }
     } catch (err) {
