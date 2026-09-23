@@ -7,30 +7,26 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
 
-    // GET request (Query string) နှင့် POST request (JSON body) နှစ်ခုလုံး လက်ခံနိုင်အောင် လုပ်ထားပါသည်
     const userId = req.query.user_id || req.body?.user_id || req.body?.id;
     const zoneId = req.query.zone_id || req.body?.zone_id || req.body?.zone;
 
     if (!userId || !zoneId) {
         return res.status(400).json({ 
             status: false, 
-            message: "User ID နှင့် Zone ID ထည့်ပေးပါ။ Example: ?user_id=123456&zone_id=1234" 
+            message: "User ID နှင့် Zone ID ထည့်ပေးပါ။" 
         });
     }
 
     try {
-        // Sacoli API သို့ Direct Request ပို့ခြင်း
-        const response = await fetch("https://sacoliofficial.com/api/api/games/check_region", {
-            method: "POST",
+        // Sacoli API သို့ GET Request ပြောင်းလဲ ပို့ဆောင်ခြင်း
+        const targetUrl = `https://sacoliofficial.com/api/api/games/check_region?game=mlbb&user_id=${userId}&zone_id=${zoneId}`;
+        
+        const response = await fetch(targetUrl, {
+            method: "GET",
             headers: {
-                "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-            },
-            body: JSON.stringify({
-                game: "mlbb",
-                user_id: userId.toString(),
-                zone_id: zoneId.toString()
-            })
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                "Accept": "application/json"
+            }
         });
 
         const rawData = await response.text();
@@ -41,21 +37,19 @@ export default async function handler(req, res) {
         } catch (e) {
             return res.status(500).json({
                 status: false,
-                message: "API မှ JSON မဟုတ်သော Response ပြန်ပေးနေပါသည် (Server Down ဖြစ်နိုင်ပါသည်)။",
-                raw_response: rawData
+                message: "API မှ JSON ပြန်မပေးပါ - " + rawData
             });
         }
 
-        // Response မြင်ရအောင် ပို့ပေးမည်
-        return res.status(response.status).json({
+        return res.status(200).json({
             status: response.ok,
-            result: data
+            data: data
         });
 
     } catch (error) {
         return res.status(500).json({
             status: false,
-            message: "API ခေါ်ယူစဉ် Error တက်ပါသည်: " + error.message
+            message: "Error: " + error.message
         });
     }
 }
