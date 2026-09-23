@@ -7,7 +7,6 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
 
-    // ID နှင့် Zone ID Parameter များ ဖတ်ယူခြင်း
     const userId = req.query.user_id || req.query.id || req.body?.user_id || req.body?.id;
     const zoneId = req.query.zone_id || req.query.zone || req.body?.zone_id || req.body?.zone;
 
@@ -19,33 +18,32 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Parameter နာမည်ကို id နှင့် zone သို့ ပြောင်းလဲထားပါသည်
-        const targetUrl = `https://sacoliofficial.com/api/api/games/check_region?id=${userId}&zone=${zoneId}`;
-        
-        const response = await fetch(targetUrl, {
-            method: "GET",
+        // Direct Direct MLBB Check Endpoint
+        const response = await fetch("https://order-sg.mobilelegends.com/api/v1/role/getRole", {
+            method: "POST",
             headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                "Accept": "application/json"
-            }
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: new URLSearchParams({
+                'app_id': '10001',
+                'user_id': userId,
+                'zone_id': zoneId
+            })
         });
 
         const data = await response.json();
 
-        // Target API မှ အချက်အလက်များ အဆင်ပြေစွာ ပြန်ရပါက
-        if (response.ok) {
+        if (data && data.code === 0 && data.data) {
             return res.status(200).json({
                 status: true,
-                username: data.username || data.name || data.nickname || data.result || data,
+                username: data.data.username || data.data.role_name,
                 user_id: userId,
-                zone_id: zoneId,
-                raw_data: data
+                zone_id: zoneId
             });
         } else {
             return res.status(400).json({
                 status: false,
-                message: "အကောင့် ရှာမတွေ့ပါ (သို့) ID လွဲမှားနေပါသည်။",
-                error: data
+                message: data.message || "အကောင့် ရှာမတွေ့ပါ (သို့) ID/Zone လွဲမှားနေပါသည်။"
             });
         }
 
