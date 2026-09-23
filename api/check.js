@@ -1,4 +1,5 @@
 export default async function handler(req, res) {
+    // CORS Header များ သတ်မှတ်ခြင်း
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -7,6 +8,7 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
 
+    // Request ထဲမှ user_id နှင့် zone_id ကို ယူခြင်း
     let body = req.body;
     if (typeof body === 'string') {
         try { body = JSON.parse(body); } catch (e) { body = {}; }
@@ -16,60 +18,48 @@ export default async function handler(req, res) {
     const zoneId = body?.zone_id || req.query?.zone_id;
 
     if (!userId || !zoneId) {
-        return res.status(400).json({ status: false, message: "User ID နှင့် Zone ID ထည့်ပေးပါ။" });
+        return res.status(400).json({ 
+            status: false, 
+            message: "User ID နှင့် Zone ID ထည့်ပေးပါ။" 
+        });
     }
 
     try {
-        // Moonton Official Public Validator Proxy
-        const response = await fetch(`https://api.vold.id/api/mlbb/check?user_id=${userId}&zone_id=${zoneId}`, {
-            method: 'GET',
+        // Sacoli Official MLBB ID Verify API သို့ Request ပို့ခြင်း
+        const response = await fetch("https://sacoliofficial.com/api/api/games/check_region", {
+            method: "POST",
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-            }
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0"
+            },
+            body: JSON.stringify({
+                game: "mlbb",
+                user_id: userId,
+                zone_id: zoneId
+            })
         });
 
         const data = await response.json();
 
+        // API တုံ့ပြန်မှုကို စစ်ဆေးပြီး JSON ပြန်ထုတ်ပေးခြင်း
         if (data && (data.username || data.name || data.data?.username)) {
-            const name = data.username || data.name || data.data?.username;
+            const username = data.username || data.name || data.data?.username;
             return res.status(200).json({
                 status: true,
-                username: name,
+                username: username,
                 user_id: userId,
                 zone_id: zoneId
             });
-        }
-
-        // Fallback Backup Provider
-        const backupRes = await fetch("https://smileone.com/merchant/mobilelegends/checkrole", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded"
-            },
-            body: new URLSearchParams({
-                user_id: userId,
-                zone_id: zoneId,
-                pid: "13"
-            })
-        });
-
-        const backupData = await backupRes.json();
-
-        if (backupData && backupData.username) {
-            return res.status(200).json({
-                status: true,
-                username: backupData.username,
-                user_id: userId,
-                zone_id: zoneId
+        } else {
+            return res.status(400).json({
+                status: false,
+                message: data.message || "အကောင့် ရှာမတွေ့ပါ။ ID/Zone ပြန်စစ်ပါ။"
             });
         }
-
-        return res.status(400).json({
+    } catch (error) {
+        return res.status(500).json({
             status: false,
-            message: "အကောင့် ရှာမတွေ့ပါ။ ID/Zone ပြန်စစ်ပါ။"
+            message: "Server Error: " + error.message
         });
-
-    } catch (err) {
-        return res.status(500).json({ status: false, message: "Server Error: " + err.message });
     }
 }
