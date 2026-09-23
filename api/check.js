@@ -1,14 +1,15 @@
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
-    const userId = req.query.user_id || req.body?.user_id || req.body?.id;
-    const zoneId = req.query.zone_id || req.body?.zone_id || req.body?.zone;
+    // ID နှင့် Zone ID Parameter များ ဖတ်ယူခြင်း
+    const userId = req.query.user_id || req.query.id || req.body?.user_id || req.body?.id;
+    const zoneId = req.query.zone_id || req.query.zone || req.body?.zone_id || req.body?.zone;
 
     if (!userId || !zoneId) {
         return res.status(400).json({ 
@@ -18,8 +19,8 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Sacoli API သို့ GET Request ပြောင်းလဲ ပို့ဆောင်ခြင်း
-        const targetUrl = `https://sacoliofficial.com/api/api/games/check_region?game=mlbb&user_id=${userId}&zone_id=${zoneId}`;
+        // Parameter နာမည်ကို id နှင့် zone သို့ ပြောင်းလဲထားပါသည်
+        const targetUrl = `https://sacoliofficial.com/api/api/games/check_region?id=${userId}&zone=${zoneId}`;
         
         const response = await fetch(targetUrl, {
             method: "GET",
@@ -29,27 +30,29 @@ export default async function handler(req, res) {
             }
         });
 
-        const rawData = await response.text();
-        let data;
+        const data = await response.json();
 
-        try {
-            data = JSON.parse(rawData);
-        } catch (e) {
-            return res.status(500).json({
+        // Target API မှ အချက်အလက်များ အဆင်ပြေစွာ ပြန်ရပါက
+        if (response.ok) {
+            return res.status(200).json({
+                status: true,
+                username: data.username || data.name || data.nickname || data.result || data,
+                user_id: userId,
+                zone_id: zoneId,
+                raw_data: data
+            });
+        } else {
+            return res.status(400).json({
                 status: false,
-                message: "API မှ JSON ပြန်မပေးပါ - " + rawData
+                message: "အကောင့် ရှာမတွေ့ပါ (သို့) ID လွဲမှားနေပါသည်။",
+                error: data
             });
         }
-
-        return res.status(200).json({
-            status: response.ok,
-            data: data
-        });
 
     } catch (error) {
         return res.status(500).json({
             status: false,
-            message: "Error: " + error.message
+            message: "Server Error: " + error.message
         });
     }
 }
