@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zapya Web Offline Share</title>
+    <!-- WebRTC လွယ်ကူစေရန် PeerJS သုံးထားပါသည် -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { background: white; width: 100%; max-width: 450px; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #007bff; margin-top: 0; }
+        .card { background: #eef5ff; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center; }
+        .my-id-box { font-size: 22px; font-weight: bold; color: #d9534f; letter-spacing: 2px; }
+        input[type="text"] { width: 70%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-size: 16px; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #0056b3; }
+        .file-input-wrapper { margin: 15px 0; }
+        input[type="file"] { display: none; }
+        .custom-file-btn { background: #28a745; color: white; padding: 12px 20px; border-radius: 8px; display: inline-block; cursor: pointer; font-weight: bold; }
+        #status { font-weight: bold; color: #333; text-align: center; margin: 10px 0; }
+        .received-box { background: #f8f9fa; border: 1px dashed #6c757d; padding: 15px; border-radius: 8px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>⚡ Zapya Web Share</h2>
+    
+    <!-- မိမိ ID ပြမည့်နေရာ -->
+    <div class="card">
+        <div>သင့်ဖုန်း၏ ချိတ်ဆက် ID</div>
+        <div class="my-id-box" id="my-id">ထုတ်ယူနေသည်...</div>
+    </div>
+
+    <!-- အခြားဖုန်းကို ချိတ်ဆက်ရန် -->
+    <div style="text-align: center; margin-bottom: 20px;">
+        <input type="text" id="other-id" placeholder="တစ်ဖက်လူ ID ရိုက်ပါ">
+        <button onclick="connectToPeer()">Connect</button>
+    </div>
+
+    <div id="status">အခြေအနေ: မချိတ်ဆက်ရသေးပါ</div>
+    <hr>
+
+    <!-- ဖိုင်/သီချင်း/ဗီဒီယို ပို့ရန် -->
+    <div style="text-align: center;" class="file-input-wrapper">
+        <label for="fileInput" class="custom-file-btn">📁 သီချင်း/ဗီဒီယို/ဖိုင် ရွေးရန်</label>
+        <input type="file" id="fileInput" onchange="updateFileName()">
+        <div id="selected-file-name" style="margin-top: 8px; font-size: 14px; color: #555;"></div>
+        <br>
+        <button style="background: #17a2b8; margin-top: 10px;" onclick="sendFile()">📤 ပို့မည် (Send)</button>
+    </div>
+
+    <!-- ရောက်ရှိလာသော ဖိုင်များ -->
+    <div class="received-box">
+        <h4 style="margin-top:0;">📩 ရရှိလာသော ဖိုင်များ (Storage သို့ တန်းရောက်မည်)</h4>
+        <div id="file-list">ဖိုင်မရှိသေးပါ...</div>
+    </div>
+</div>
+
+<script>
+    // Random ID ထုတ်ပေးခြင်း (Zapya လိုမျိုး ID အတို ၄ လုံး)
+    const randomId = Math.floor(1000 + Math.random() * 9000).toString();
+    const peer = new Peer(randomId);
+    let conn = null;
+
+    // မိမိ ID ပြပေးခြင်း
+    peer.on('open', (id) => {
+        document.getElementById('my-id').innerText = id;
+    });
+
+    // တစ်ဖက်လူက မိမိထံ လာရောက်ချိတ်ဆက်သည့်အခါ
+    peer.on('connection', (connection) => {
+        conn = connection;
+        setupEvents();
+    });
+
+    // တစ်ဖက်လူ ID ကို ရိုက်ပြီး ချိတ်ဆက်ခြင်း
+    function connectToPeer() {
+        const otherId = document.getElementById('other-id').value.trim();
+        if(!otherId) return alert("ID ရိုက်ထည့်ပါ");
+        conn = peer.connect(otherId);
+        setupEvents();
+    }
+
+    // ချိတ်ဆက်မှု အခြေအနေနှင့် ဒေတာ လက်ခံခြင်း
+    function setupEvents() {
+        conn.on('open', () => {
+            document.getElementById('status').innerText = "အခြေအနေ: 🟢 ဖုန်းနှစ်လုံး ချိတ်ဆက်ပြီးပါပြီ!";
+            document.getElementById('status').style.color = "green";
+        });
+
+        conn.on('data', (data) => {
+            // ဖိုင် ရရှိလာပါက Phone Local Storage (Download Folder) ထဲ တိုက်ရိုက် သိမ်းဆည်းခြင်း
+            saveToPhoneStorage(data.fileData, data.fileName);
+        });
+    }
+
+    // ရွေးလိုက်သော ဖိုင်အမည် ပြပေးခြင်း
+    function updateFileName() {
+        const input = document.getElementById('fileInput');
+        if(input.files.length > 0) {
+            document.getElementById('selected-file-name').innerText = "ရွေးထားသော ဖိုင်: " + input.files[0].name;
+        }
+    }
+
+    // ဖိုင် ပို့ပေးသည့် Function
+    function sendFile() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+
+        if (!file) return alert("ကျေးဇူးပြု၍ ဖိုင်/သီချင်း ရွေးပါ");
+        if (!conn || !conn.open) return alert("ရှေ့မှာ ဖုန်းအချင်းချင်း အရင် ချိတ်ဆက်ပါ");
+
+        document.getElementById('status').innerText = "အခြေအနေ: ⏳ ဖိုင် ပို့နေပါသည်...";
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            conn.send({
+                fileName: file.name,
+                fileData: event.target.result
+            });
+            document.getElementById('status').innerText = "အခြေအနေ: 🟢 ဖိုင် ပို့ပြီးပါပြီ!";
+            alert("ဖိုင် ပို့ပြီးပါပြီ!");
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // Phone Local Storage (Download Folder) ထဲ တိုက်ရိုက် အလိုအလျောက် ရောက်သွားစေသည့် Function
+    function saveToPhoneStorage(fileData, fileName) {
+        const blob = new Blob([fileData]);
+        const blobUrl = URL.createObjectURL(blob);
+        
+        // Unseen Auto-click link ဖန်တီး၍ ဒေါင်းလုဒ်ဆွဲခိုင်းခြင်း
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Screen မှာလည်း သွားရောက် ပြသပေးခြင်း
+        const fileList = document.getElementById('file-list');
+        if(fileList.innerText === "ဖိုင်မရှိသေးပါ...") fileList.innerHTML = "";
+        
+        fileList.innerHTML += `<p>✅ <b>${fileName}</b> (ဖုန်း Download Folder ထဲ ရောက်သွားပါပြီ)</p>`;
+    }
+</script>
+
+</body>
+</html>
